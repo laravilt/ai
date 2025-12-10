@@ -1,0 +1,114 @@
+{
+  "name": "laravilt-ai",
+  "version": "1.0.0",
+  "description": "MCP Server for Laravilt AI Package",
+  "mcpServers": {
+    "laravilt-ai-docs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "./docs"
+      ],
+      "metadata": {
+        "description": "Provides access to Laravilt AI package documentation",
+        "categories": ["ai", "chat", "openai", "anthropic", "gemini"]
+      }
+    }
+  },
+  "resources": [
+    {
+      "uri": "laravilt://ai/docs/index",
+      "name": "Laravilt AI Documentation",
+      "description": "Complete documentation for the Laravilt AI package",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "laravilt://ai/providers",
+      "name": "AI Providers Guide",
+      "description": "Guide for configuring AI providers (OpenAI, Anthropic, Gemini)",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "laravilt://ai/chat",
+      "name": "AI Chat Integration",
+      "description": "Guide for integrating the AI chat component",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "laravilt://ai/global-search",
+      "name": "Global Search Documentation",
+      "description": "Guide for AI-powered global search",
+      "mimeType": "text/markdown"
+    }
+  ],
+  "tools": [
+    {
+      "name": "configure_ai_provider",
+      "description": "Configure an AI provider for a panel",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["openai", "anthropic", "gemini"],
+            "description": "AI provider name"
+          },
+          "model": {
+            "type": "string",
+            "description": "Model name (e.g., 'gpt-4', 'claude-3-sonnet', 'gemini-pro')"
+          },
+          "apiKey": {
+            "type": "string",
+            "description": "API key environment variable name"
+          }
+        },
+        "required": ["provider"]
+      }
+    },
+    {
+      "name": "list_ai_models",
+      "description": "List available AI models for a provider",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["openai", "anthropic", "gemini"],
+            "description": "AI provider name"
+          }
+        },
+        "required": ["provider"]
+      }
+    },
+    {
+      "name": "search_ai_docs",
+      "description": "Search the Laravilt AI documentation",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query"
+          }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "get_ai_config_example",
+      "description": "Get example configuration for AI setup",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "feature": {
+            "type": "string",
+            "enum": ["providers", "chat", "global-search", "embeddings"],
+            "description": "Feature to get example for"
+          }
+        },
+        "required": ["feature"]
+      }
+    }
+  ]
+}

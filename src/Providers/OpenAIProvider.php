@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Laravilt\AI\Providers;
 
 use Generator;
+use Laravilt\AI\Enums\OpenAIModel;
 
 class OpenAIProvider extends BaseProvider
 {
@@ -20,21 +21,12 @@ class OpenAIProvider extends BaseProvider
 
     public function getModels(): array
     {
-        return [
-            'gpt-4o' => 'GPT-4o',
-            'gpt-4o-mini' => 'GPT-4o Mini',
-            'gpt-4-turbo' => 'GPT-4 Turbo',
-            'gpt-4' => 'GPT-4',
-            'gpt-3.5-turbo' => 'GPT-3.5 Turbo',
-            'o1' => 'o1',
-            'o1-mini' => 'o1 Mini',
-            'o1-preview' => 'o1 Preview',
-        ];
+        return OpenAIModel::toArray();
     }
 
     public function getDefaultModel(): string
     {
-        return 'gpt-4o-mini';
+        return OpenAIModel::GPT_4O_MINI->value;
     }
 
     protected function getBaseUrl(): string

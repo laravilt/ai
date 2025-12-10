@@ -1,5 +1,5 @@
 <?php
 
-use Laravilt\Ai\Tests\TestCase;
+use Laravilt\AI\Tests\TestCase;
 
 uses(TestCase::class)->in(__DIR__);

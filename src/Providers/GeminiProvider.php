@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Laravilt\AI\Providers;
 
 use Generator;
+use Laravilt\AI\Enums\GeminiModel;
 
 class GeminiProvider extends BaseProvider
 {
@@ -20,18 +21,12 @@ class GeminiProvider extends BaseProvider
 
     public function getModels(): array
     {
-        return [
-            'gemini-2.0-flash-exp' => 'Gemini 2.0 Flash',
-            'gemini-1.5-pro' => 'Gemini 1.5 Pro',
-            'gemini-1.5-flash' => 'Gemini 1.5 Flash',
-            'gemini-1.5-flash-8b' => 'Gemini 1.5 Flash 8B',
-            'gemini-pro' => 'Gemini Pro',
-        ];
+        return GeminiModel::toArray();
     }
 
     public function getDefaultModel(): string
     {
-        return 'gemini-2.0-flash-exp';
+        return GeminiModel::GEMINI_2_FLASH->value;
     }
 
     protected function getBaseUrl(): string

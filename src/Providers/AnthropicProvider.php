@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Laravilt\AI\Providers;
 
 use Generator;
+use Laravilt\AI\Enums\AnthropicModel;
 
 class AnthropicProvider extends BaseProvider
 {
@@ -20,20 +21,12 @@ class AnthropicProvider extends BaseProvider
 
     public function getModels(): array
     {
-        return [
-            'claude-sonnet-4-20250514' => 'Claude Sonnet 4',
-            'claude-opus-4-20250514' => 'Claude Opus 4',
-            'claude-3-5-sonnet-20241022' => 'Claude 3.5 Sonnet',
-            'claude-3-5-haiku-20241022' => 'Claude 3.5 Haiku',
-            'claude-3-opus-20240229' => 'Claude 3 Opus',
-            'claude-3-sonnet-20240229' => 'Claude 3 Sonnet',
-            'claude-3-haiku-20240307' => 'Claude 3 Haiku',
-        ];
+        return AnthropicModel::toArray();
     }
 
     public function getDefaultModel(): string
     {
-        return 'claude-sonnet-4-20250514';
+        return AnthropicModel::CLAUDE_SONNET_4->value;
     }
 
     protected function getBaseUrl(): string

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { Search, Loader2, X, Sparkles, ArrowRight } from 'lucide-vue-next'
+import { Search, Loader2, X, Sparkles, ArrowRight, Command, FileText, Users, Package, Settings, Database } from 'lucide-vue-next'
+import { usePage } from '@inertiajs/vue3'
+import * as LucideIcons from 'lucide-vue-next'
+import { useLocalization } from '@/composables/useLocalization'
 
 interface SearchResult {
   id: string | number
@@ -20,13 +23,9 @@ interface SearchGroup {
 const props = withDefaults(
   defineProps<{
     placeholder?: string
-    useAI?: boolean
-    endpoint?: string
   }>(),
   {
-    placeholder: 'Search...',
-    useAI: true,
-    endpoint: '/laravilt-ai/search',
+    placeholder: undefined,
   }
 )
 
@@ -35,12 +34,56 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
+const { trans } = useLocalization()
+
+const page = usePage<{
+  panel?: {
+    hasGlobalSearch?: boolean
+    globalSearchEndpoint?: string
+    globalSearchConfig?: {
+      enabled?: boolean
+      useAI?: boolean
+      debounce?: number
+    }
+    hasAI?: boolean
+  }
+}>()
+
 const isOpen = ref(false)
 const query = ref('')
 const loading = ref(false)
 const results = ref<SearchGroup[]>([])
 const selectedIndex = ref(0)
 const inputRef = ref<HTMLInputElement | null>(null)
+const useAI = ref(false)
+
+// Initialize AI mode from config
+onMounted(() => {
+  useAI.value = page.props.panel?.globalSearchConfig?.useAI ?? false
+})
+
+const hasGlobalSearch = computed(() => page.props.panel?.hasGlobalSearch ?? true)
+const hasAIConfig = computed(() => page.props.panel?.hasAI ?? false)
+const endpoint = computed(() => page.props.panel?.globalSearchEndpoint ?? '/global-search')
+const debounceMs = computed(() => page.props.panel?.globalSearchConfig?.debounce ?? 300)
+
+// Translation helper with proper keys from laravilt-ai::ai.search.*
+const t = computed(() => ({
+  placeholder: props.placeholder ?? trans('laravilt-ai::ai.search.placeholder'),
+  ai_powered: trans('laravilt-ai::ai.search.ai_powered'),
+  no_results: trans('laravilt-ai::ai.search.no_results'),
+  no_results_for: trans('laravilt-ai::ai.search.no_results_for'),
+  try_different: trans('laravilt-ai::ai.search.try_different'),
+  start_typing: trans('laravilt-ai::ai.search.start_typing'),
+  results_count: trans('laravilt-ai::ai.search.results_count'),
+  type_to_search: trans('laravilt-ai::ai.search.type_to_search'),
+  to_navigate: trans('laravilt-ai::ai.search.to_navigate'),
+  to_select: trans('laravilt-ai::ai.search.to_select'),
+  to_close: trans('laravilt-ai::ai.search.to_close'),
+  toggle_ai: trans('laravilt-ai::ai.search.toggle_ai'),
+  ai_enabled: trans('laravilt-ai::ai.search.ai_enabled'),
+  ai_disabled: trans('laravilt-ai::ai.search.ai_disabled'),
+}))
 
 // Flatten results for keyboard navigation
 const flatResults = computed(() => {
@@ -72,7 +115,7 @@ watch(query, (newQuery) => {
 
   searchTimeout = setTimeout(async () => {
     await performSearch(newQuery)
-  }, 300)
+  }, debounceMs.value)
 })
 
 async function performSearch(searchQuery: string) {
@@ -81,7 +124,7 @@ async function performSearch(searchQuery: string) {
 
   try {
     const response = await fetch(
-      `${props.endpoint}?query=${encodeURIComponent(searchQuery)}&useAI=${props.useAI}`
+      `${endpoint.value}?query=${encodeURIComponent(searchQuery)}&useAI=${useAI.value}`
     )
     const data = await response.json()
     results.value = data.results || []
@@ -90,6 +133,14 @@ async function performSearch(searchQuery: string) {
     results.value = []
   } finally {
     loading.value = false
+  }
+}
+
+function toggleAI() {
+  useAI.value = !useAI.value
+  // Re-search if there's a query
+  if (query.value.trim()) {
+    performSearch(query.value)
   }
 }
 
@@ -171,26 +222,82 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown, true)
 })
 
+// Map of resource icons with fallback
+const resourceIconMap: Record<string, string> = {
+  'users': 'Users',
+  'products': 'Package',
+  'settings': 'Settings',
+  'documents': 'FileText',
+  'files': 'FileText',
+}
+
+// Get icon component for a group
+function getIconComponent(iconName?: string): any {
+  if (!iconName) return Database
+
+  // Try direct name first
+  if ((LucideIcons as any)[iconName]) {
+    return (LucideIcons as any)[iconName]
+  }
+
+  // Convert kebab-case to PascalCase
+  const pascalCase = iconName
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('')
+
+  if ((LucideIcons as any)[pascalCase]) {
+    return (LucideIcons as any)[pascalCase]
+  }
+
+  // Try without heroicon prefix
+  const withoutPrefix = iconName.replace(/^heroicon-[os]-/, '')
+  const cleanPascal = withoutPrefix
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('')
+
+  if ((LucideIcons as any)[cleanPascal]) {
+    return (LucideIcons as any)[cleanPascal]
+  }
+
+  return Database
+}
+
+// Get icon color class for a group (for variety)
+function getIconColorClass(index: number): string {
+  const colors = [
+    'bg-blue-500/10 text-blue-500 dark:bg-blue-500/20 dark:text-blue-400',
+    'bg-purple-500/10 text-purple-500 dark:bg-purple-500/20 dark:text-purple-400',
+    'bg-green-500/10 text-green-500 dark:bg-green-500/20 dark:text-green-400',
+    'bg-orange-500/10 text-orange-500 dark:bg-orange-500/20 dark:text-orange-400',
+    'bg-pink-500/10 text-pink-500 dark:bg-pink-500/20 dark:text-pink-400',
+    'bg-cyan-500/10 text-cyan-500 dark:bg-cyan-500/20 dark:text-cyan-400',
+  ]
+  return colors[index % colors.length]
+}
+
 defineExpose({ open, close })
 </script>
 
 <template>
-  <!-- Trigger Button -->
+  <!-- Trigger Button - shadcn style -->
   <button
+    v-if="hasGlobalSearch"
     type="button"
-    class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-500 shadow-sm transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+    class="inline-flex items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground shadow-sm transition hover:bg-accent hover:text-accent-foreground"
+    :title="t.placeholder"
     @click="open"
   >
     <Search class="h-4 w-4" />
-    <span class="hidden sm:inline">Search...</span>
     <kbd
-      class="ml-2 hidden rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400 sm:inline"
+      class="pointer-events-none hidden h-5 select-none items-center gap-0.5 rounded border border-input bg-muted px-1.5 font-mono text-[10px] font-medium sm:flex"
     >
-      ⌘K
+      <Command class="h-2.5 w-2.5" />K
     </kbd>
   </button>
 
-  <!-- Spotlight Modal -->
+  <!-- Spotlight Modal - shadcn style -->
   <Teleport to="body">
     <Transition
       enter-active-class="duration-200 ease-out"
@@ -202,44 +309,59 @@ defineExpose({ open, close })
     >
       <div
         v-if="isOpen"
-        class="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 md:p-20"
+        class="fixed inset-0 z-50 overflow-y-auto p-4 pt-[15vh] sm:p-6 sm:pt-[20vh]"
         @click.self="close"
       >
         <!-- Backdrop -->
-        <div class="fixed inset-0 bg-gray-500/75 transition-opacity dark:bg-gray-900/80" />
+        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" />
 
         <!-- Modal -->
         <Transition
           enter-active-class="duration-200 ease-out"
-          enter-from-class="opacity-0 scale-95"
-          enter-to-class="opacity-100 scale-100"
+          enter-from-class="opacity-0 scale-95 translate-y-4"
+          enter-to-class="opacity-100 scale-100 translate-y-0"
           leave-active-class="duration-150 ease-in"
-          leave-from-class="opacity-100 scale-100"
-          leave-to-class="opacity-0 scale-95"
+          leave-from-class="opacity-100 scale-100 translate-y-0"
+          leave-to-class="opacity-0 scale-95 translate-y-4"
         >
           <div
             v-if="isOpen"
-            class="relative mx-auto max-w-xl transform divide-y divide-gray-100 overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5 transition-all dark:divide-gray-700 dark:bg-gray-800 dark:ring-white/10"
+            class="relative mx-auto max-w-2xl transform overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-2xl ring-1 ring-border transition-all"
           >
-            <!-- Search Input -->
-            <div class="relative">
-              <Search
-                class="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-gray-400"
-              />
+            <!-- Search Input - shadcn style -->
+            <div class="relative flex items-center px-4 py-3">
+              <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-muted">
+                <Search class="h-5 w-5 text-muted-foreground" />
+              </div>
               <input
                 ref="inputRef"
                 v-model="query"
                 type="text"
-                class="h-12 w-full border-0 bg-transparent pl-11 pr-12 text-gray-900 placeholder:text-gray-400 focus:ring-0 dark:text-gray-100 sm:text-sm"
-                :placeholder="placeholder"
+                class="h-12 flex-1 border-0 bg-transparent px-4 text-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
+                :placeholder="t.placeholder"
                 @keydown="handleKeydown"
               />
-              <div class="absolute right-3 top-3 flex items-center gap-2">
-                <Loader2 v-if="loading" class="h-5 w-5 animate-spin text-gray-400" />
+              <div class="flex items-center gap-2">
+                <!-- AI Toggle Button -->
+                <button
+                  v-if="hasAIConfig"
+                  type="button"
+                  class="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200"
+                  :class="[
+                    useAI
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  ]"
+                  :title="useAI ? t.ai_enabled : t.ai_disabled"
+                  @click="toggleAI"
+                >
+                  <Sparkles class="h-4 w-4" />
+                </button>
+                <Loader2 v-if="loading" class="h-5 w-5 animate-spin text-muted-foreground" />
                 <button
                   v-else-if="query"
                   type="button"
-                  class="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-500 dark:hover:bg-gray-700"
+                  class="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
                   @click="query = ''"
                 >
                   <X class="h-4 w-4" />
@@ -249,103 +371,142 @@ defineExpose({ open, close })
 
             <!-- AI Badge -->
             <div
-              v-if="useAI"
-              class="flex items-center gap-1.5 border-b border-gray-100 px-4 py-2 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400"
+              v-if="useAI && hasAIConfig"
+              class="mx-4 mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
             >
-              <Sparkles class="h-3.5 w-3.5 text-purple-500" />
-              <span>AI-powered search</span>
+              <Sparkles class="h-3 w-3" />
+              <span>{{ t.ai_powered }}</span>
             </div>
 
-            <!-- Results -->
-            <div v-if="results.length > 0" class="max-h-96 scroll-py-3 overflow-y-auto p-3">
-              <div v-for="group in results" :key="group.resource" class="mb-4 last:mb-0">
+            <!-- Divider -->
+            <div v-if="results.length > 0 || query" class="mx-4 h-px bg-border" />
+
+            <!-- Results - shadcn style -->
+            <div v-if="results.length > 0" class="max-h-[50vh] overflow-y-auto overscroll-contain px-3 py-3">
+              <div v-for="(group, groupIndex) in results" :key="group.resource" class="mb-4 last:mb-0">
+                <!-- Group Header -->
                 <h3
-                  class="mb-2 flex items-center gap-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                  class="mb-2 flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
+                  <component :is="getIconComponent(group.icon)" class="h-3.5 w-3.5" />
                   {{ group.label }}
                 </h3>
+
+                <!-- Results List -->
                 <ul class="space-y-1">
                   <li v-for="(result, idx) in group.results" :key="result.id">
                     <button
                       type="button"
-                      class="group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition"
+                      class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all duration-150"
                       :class="[
                         flatResults.findIndex((f) => f.result === result) === selectedIndex
-                          ? 'bg-primary-50 text-primary-900 dark:bg-primary-900/20 dark:text-primary-100'
-                          : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700',
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-foreground hover:bg-accent',
                       ]"
                       @click="selectResult(result, group)"
-                      @mouseenter="
-                        selectedIndex = flatResults.findIndex((f) => f.result === result)
-                      "
+                      @mouseenter="selectedIndex = flatResults.findIndex((f) => f.result === result)"
                     >
-                      <div class="flex-1 truncate">
-                        <div class="font-medium">{{ result.title }}</div>
+                      <!-- Icon with color background -->
+                      <div
+                        class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg transition-colors"
+                        :class="[
+                          flatResults.findIndex((f) => f.result === result) === selectedIndex
+                            ? 'bg-primary-foreground/20'
+                            : 'bg-muted',
+                        ]"
+                      >
+                        <component
+                          :is="getIconComponent(group.icon)"
+                          class="h-5 w-5"
+                          :class="[
+                            flatResults.findIndex((f) => f.result === result) === selectedIndex
+                              ? 'text-primary-foreground'
+                              : 'text-muted-foreground',
+                          ]"
+                        />
+                      </div>
+
+                      <!-- Content -->
+                      <div class="flex-1 min-w-0">
+                        <div class="truncate font-medium">{{ result.title }}</div>
                         <div
                           v-if="result.subtitle"
-                          class="truncate text-sm text-gray-500 dark:text-gray-400"
+                          class="truncate text-sm"
+                          :class="[
+                            flatResults.findIndex((f) => f.result === result) === selectedIndex
+                              ? 'text-primary-foreground/70'
+                              : 'text-muted-foreground',
+                          ]"
                         >
                           {{ result.subtitle }}
                         </div>
                       </div>
-                      <ArrowRight
-                        class="h-4 w-4 flex-shrink-0 text-gray-400 opacity-0 transition group-hover:opacity-100"
-                      />
+
+                      <!-- Arrow indicator -->
+                      <div
+                        class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md transition-all"
+                        :class="[
+                          flatResults.findIndex((f) => f.result === result) === selectedIndex
+                            ? 'bg-primary-foreground/20 text-primary-foreground'
+                            : 'bg-muted text-muted-foreground opacity-0 group-hover:opacity-100',
+                        ]"
+                      >
+                        <ArrowRight class="h-4 w-4" />
+                      </div>
                     </button>
                   </li>
                 </ul>
               </div>
             </div>
 
-            <!-- Empty State -->
+            <!-- Empty State - shadcn style -->
             <div
               v-else-if="query && !loading"
-              class="px-6 py-14 text-center text-sm text-gray-500 dark:text-gray-400"
+              class="px-6 py-14 text-center"
             >
-              <Search class="mx-auto mb-4 h-10 w-10 text-gray-300 dark:text-gray-600" />
-              <p>No results found for "{{ query }}"</p>
-              <p class="mt-1 text-xs">Try searching with different keywords</p>
+              <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-muted">
+                <Search class="h-8 w-8 text-muted-foreground/50" />
+              </div>
+              <p class="text-lg font-medium text-foreground">{{ t.no_results }}</p>
+              <p class="mt-1 text-sm text-muted-foreground">
+                {{ trans('laravilt-ai::ai.search.no_results_for', { query }) }}
+              </p>
             </div>
 
-            <!-- Initial State -->
+            <!-- Initial State - shadcn style -->
             <div
               v-else-if="!query"
-              class="px-6 py-14 text-center text-sm text-gray-500 dark:text-gray-400"
+              class="px-6 py-14 text-center"
             >
-              <Search class="mx-auto mb-4 h-10 w-10 text-gray-300 dark:text-gray-600" />
-              <p>Start typing to search</p>
-              <div class="mt-4 flex justify-center gap-2">
-                <kbd
-                  class="rounded bg-gray-100 px-2 py-1 text-xs font-medium dark:bg-gray-700"
-                  >↑↓</kbd
-                >
-                <span class="text-xs">to navigate</span>
-                <kbd
-                  class="rounded bg-gray-100 px-2 py-1 text-xs font-medium dark:bg-gray-700"
-                  >↵</kbd
-                >
-                <span class="text-xs">to select</span>
-                <kbd
-                  class="rounded bg-gray-100 px-2 py-1 text-xs font-medium dark:bg-gray-700"
-                  >esc</kbd
-                >
-                <span class="text-xs">to close</span>
+              <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-muted">
+                <Search class="h-8 w-8 text-muted-foreground/50" />
               </div>
+              <p class="text-lg font-medium text-foreground">{{ t.start_typing }}</p>
+              <p class="mt-1 text-sm text-muted-foreground">{{ t.type_to_search }}</p>
             </div>
 
-            <!-- Footer -->
+            <!-- Footer - shadcn style -->
             <div
-              class="flex items-center justify-between border-t border-gray-100 px-4 py-2.5 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400"
+              class="flex items-center justify-between border-t border-border bg-muted/50 px-4 py-2.5"
             >
-              <span v-if="totalResults > 0">{{ totalResults }} results</span>
-              <span v-else>Type to search</span>
-              <div class="flex items-center gap-3">
-                <span>Press</span>
-                <kbd
-                  class="rounded bg-gray-100 px-1.5 py-0.5 font-medium dark:bg-gray-700"
-                  >ESC</kbd
-                >
-                <span>to close</span>
+              <span class="text-xs text-muted-foreground">
+                <template v-if="totalResults > 0">{{ trans('laravilt-ai::ai.search.results_count', { count: totalResults }) }}</template>
+                <template v-else>{{ t.type_to_search }}</template>
+              </span>
+              <div class="flex items-center gap-3 text-xs text-muted-foreground">
+                <div class="flex items-center gap-1">
+                  <kbd class="flex h-5 items-center justify-center rounded border border-input bg-background px-1.5 font-mono text-[10px] font-medium">↑</kbd>
+                  <kbd class="flex h-5 items-center justify-center rounded border border-input bg-background px-1.5 font-mono text-[10px] font-medium">↓</kbd>
+                  <span class="ms-1">{{ t.to_navigate }}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <kbd class="flex h-5 items-center justify-center rounded border border-input bg-background px-1.5 font-mono text-[10px] font-medium">↵</kbd>
+                  <span class="ms-1">{{ t.to_select }}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <kbd class="flex h-5 items-center justify-center rounded border border-input bg-background px-2 font-mono text-[10px] font-medium">esc</kbd>
+                  <span class="ms-1">{{ t.to_close }}</span>
+                </div>
               </div>
             </div>
           </div>

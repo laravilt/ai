@@ -5,33 +5,33 @@ declare(strict_types=1);
 namespace Laravilt\AI\Providers;
 
 use Generator;
-use Laravilt\AI\Enums\DeepSeekModel;
+use Laravilt\AI\Enums\PerplexityModel;
 
-class DeepSeekProvider extends BaseProvider
+class PerplexityProvider extends BaseProvider
 {
     public function getName(): string
     {
-        return 'deepseek';
+        return 'perplexity';
     }
 
     public function getLabel(): string
     {
-        return 'DeepSeek';
+        return 'Perplexity';
     }
 
     public function getModels(): array
     {
-        return DeepSeekModel::toArray();
+        return PerplexityModel::toArray();
     }
 
     public function getDefaultModel(): string
     {
-        return DeepSeekModel::DEEPSEEK_CHAT->value;
+        return PerplexityModel::SONAR->value;
     }
 
     protected function getBaseUrl(): string
     {
-        return 'https://api.deepseek.com/v1';
+        return 'https://api.perplexity.ai';
     }
 
     protected function getHeaders(): array
@@ -55,6 +55,7 @@ class DeepSeekProvider extends BaseProvider
 
         return [
             'content' => $data['choices'][0]['message']['content'] ?? '',
+            'citations' => $data['citations'] ?? [],
             'usage' => [
                 'prompt_tokens' => $data['usage']['prompt_tokens'] ?? 0,
                 'completion_tokens' => $data['usage']['completion_tokens'] ?? 0,
@@ -65,48 +66,14 @@ class DeepSeekProvider extends BaseProvider
 
     public function chatWithTools(array $messages, array $tools, array $options = []): array
     {
-        $formattedTools = array_map(function ($tool) {
-            return [
-                'type' => 'function',
-                'function' => [
-                    'name' => $tool['name'],
-                    'description' => $tool['description'] ?? '',
-                    'parameters' => $tool['parameters'] ?? ['type' => 'object', 'properties' => []],
-                ],
-            ];
-        }, $tools);
-
-        $response = $this->http()->post('/chat/completions', [
-            'model' => $options['model'] ?? $this->getModel(),
-            'messages' => $messages,
-            'tools' => $formattedTools,
-            'tool_choice' => $options['tool_choice'] ?? 'auto',
-            'temperature' => $options['temperature'] ?? $this->getTemperature(),
-            'max_tokens' => $options['max_tokens'] ?? $this->getMaxTokens(),
-        ]);
-
-        $data = $response->json();
-        $message = $data['choices'][0]['message'] ?? [];
-
-        $toolCalls = null;
-        if (isset($message['tool_calls'])) {
-            $toolCalls = array_map(function ($call) {
-                return [
-                    'id' => $call['id'],
-                    'name' => $call['function']['name'],
-                    'arguments' => json_decode($call['function']['arguments'], true) ?? [],
-                ];
-            }, $message['tool_calls']);
-        }
+        // Perplexity doesn't support tools, fall back to regular chat
+        $result = $this->chat($messages, $options);
 
         return [
-            'content' => $message['content'] ?? null,
-            'tool_calls' => $toolCalls,
-            'usage' => [
-                'prompt_tokens' => $data['usage']['prompt_tokens'] ?? 0,
-                'completion_tokens' => $data['usage']['completion_tokens'] ?? 0,
-                'total_tokens' => $data['usage']['total_tokens'] ?? 0,
-            ],
+            'content' => $result['content'],
+            'tool_calls' => null,
+            'citations' => $result['citations'] ?? [],
+            'usage' => $result['usage'],
         ];
     }
 

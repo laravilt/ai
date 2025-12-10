@@ -1,6 +1,6 @@
 <?php
 
-namespace Laravilt\Ai\Tests;
+namespace Laravilt\AI\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Orchestra\Testbench\TestCase as Orchestra;
@@ -13,22 +13,26 @@ class TestCase extends Orchestra
     {
         parent::setUp();
 
-
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');        // Additional setup if needed
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
     }
 
     protected function getPackageProviders($app): array
     {
         return [
-            \Laravilt\Ai\AiServiceProvider::class,
+            \Laravilt\AI\AIServiceProvider::class,
         ];
     }
 
     protected function getEnvironmentSetUp($app): void
     {
-        // Setup environment for testing
-        config()->set('database.default', 'testing');
-
         config()->set('database.default', 'sqlite');
-        config()->set('database.connections.sqlite.database', ':memory:');    }
+        config()->set('database.connections.sqlite.database', ':memory:');
+        config()->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
+
+        // Set up AI config for testing
+        config()->set('laravilt-ai.providers.openai', [
+            'api_key' => 'test-key',
+            'model' => 'gpt-4o-mini',
+        ]);
+    }
 }

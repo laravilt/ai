@@ -52,6 +52,14 @@ return [
             'temperature' => env('DEEPSEEK_TEMPERATURE', 0.7),
             'max_tokens' => env('DEEPSEEK_MAX_TOKENS', 2048),
         ],
+
+        'perplexity' => [
+            'api_key' => env('PERPLEXITY_API_KEY'),
+            'model' => env('PERPLEXITY_MODEL', 'sonar'),
+            'base_url' => env('PERPLEXITY_BASE_URL'),
+            'temperature' => env('PERPLEXITY_TEMPERATURE', 0.7),
+            'max_tokens' => env('PERPLEXITY_MAX_TOKENS', 2048),
+        ],
     ],
 
     /*

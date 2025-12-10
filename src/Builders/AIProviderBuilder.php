@@ -73,6 +73,14 @@ class AIProviderBuilder
     }
 
     /**
+     * Add Perplexity provider.
+     */
+    public function perplexity(?callable $configure = null): static
+    {
+        return $this->provider(\Laravilt\AI\Providers\PerplexityProvider::class, $configure);
+    }
+
+    /**
      * Set the default provider.
      */
     public function default(string $providerName): static

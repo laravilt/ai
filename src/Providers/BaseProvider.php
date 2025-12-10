@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Laravilt\AI\Providers;
 
+use BackedEnum;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Laravilt\AI\Contracts\AIProvider;
@@ -20,6 +21,42 @@ abstract class BaseProvider implements AIProvider
 
     protected int $maxTokens = 2048;
 
+    protected bool $enabled = true;
+
+    public function __construct()
+    {
+        $this->loadFromConfig();
+    }
+
+    /**
+     * Load configuration from laravilt-ai config file.
+     */
+    protected function loadFromConfig(): void
+    {
+        $providerName = $this->getName();
+        $config = config("laravilt-ai.providers.{$providerName}", []);
+
+        if (! empty($config['api_key'])) {
+            $this->apiKey = $config['api_key'];
+        }
+
+        if (! empty($config['model'])) {
+            $this->model = $config['model'];
+        }
+
+        if (! empty($config['base_url'])) {
+            $this->baseUrl = $config['base_url'];
+        }
+
+        if (isset($config['temperature'])) {
+            $this->temperature = (float) $config['temperature'];
+        }
+
+        if (isset($config['max_tokens'])) {
+            $this->maxTokens = (int) $config['max_tokens'];
+        }
+    }
+
     public function apiKey(string $apiKey): static
     {
         $this->apiKey = $apiKey;
@@ -27,11 +64,30 @@ abstract class BaseProvider implements AIProvider
         return $this;
     }
 
-    public function model(string $model): static
+    public function model(string|BackedEnum $model): static
     {
-        $this->model = $model;
+        $this->model = $model instanceof BackedEnum ? $model->value : $model;
 
         return $this;
+    }
+
+    public function enabled(bool $enabled = true): static
+    {
+        $this->enabled = $enabled;
+
+        return $this;
+    }
+
+    public function disabled(): static
+    {
+        $this->enabled = false;
+
+        return $this;
+    }
+
+    public function isEnabled(): bool
+    {
+        return $this->enabled;
     }
 
     public function baseUrl(string $baseUrl): static
@@ -57,7 +113,7 @@ abstract class BaseProvider implements AIProvider
 
     public function isConfigured(): bool
     {
-        return ! empty($this->apiKey);
+        return $this->enabled && ! empty($this->apiKey);
     }
 
     protected function getApiKey(): string
