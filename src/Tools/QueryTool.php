@@ -73,6 +73,10 @@ class QueryTool extends Tool
         // Apply ordering
         if (! empty($arguments['orderBy'])) {
             $direction = $arguments['orderDirection'] ?? 'asc';
+            // Validate sort direction
+            if (!in_array($direction, ['asc', 'desc'])) {
+                $direction = 'asc';
+            }
             $query->orderBy($arguments['orderBy'], $direction);
         }
 

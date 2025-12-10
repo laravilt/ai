@@ -1,14 +1,61 @@
 {
-    "name": "{{ package }}",
+    "name": "@laravilt/ai",
     "version": "1.0.0",
-    "private": true,
+    "description": "AI-powered search and chat for Laravilt. Supports OpenAI, Anthropic, Gemini, and DeepSeek with global search spotlight and chat UI.",
+    "author": "Fady Mondy <info@3x1.io>",
+    "license": "MIT",
     "type": "module",
+    "main": "./dist/ai.umd.js",
+    "module": "./dist/ai.es.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/ai.es.js",
+            "require": "./dist/ai.umd.js"
+        },
+        "./style.css": "./dist/style.css"
+    },
+    "files": [
+        "dist",
+        "resources"
+    ],
+    "keywords": [
+        "laravilt",
+        "ai",
+        "openai",
+        "anthropic",
+        "gemini",
+        "deepseek",
+        "global-search",
+        "spotlight",
+        "chat",
+        "vue",
+        "vue3",
+        "inertia",
+        "laravel"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/laravilt/ai"
+    },
+    "bugs": {
+        "url": "https://github.com/laravilt/ai/issues"
+    },
+    "homepage": "https://laravilt.dev/ai",
     "scripts": {
         "dev": "vite",
         "build": "vite build",
+        "build:types": "vue-tsc --declaration --emitDeclarationOnly --outDir dist resources/js/app.ts || true",
+        "build:npm": "npm run build",
+        "prepublishOnly": "npm run build:npm",
         "format": "prettier --write resources/",
         "format:check": "prettier --check resources/",
         "lint": "eslint . --fix"
+    },
+    "peerDependencies": {
+        "@inertiajs/vue3": "^2.0.0",
+        "vue": "^3.3.0"
     },
     "devDependencies": {
         "@eslint/js": "^9.19.0",
@@ -16,21 +63,26 @@
         "@types/node": "^22.13.5",
         "@vitejs/plugin-vue": "^6.0.0",
         "@vue/eslint-config-typescript": "^14.3.0",
+        "@vueuse/core": "^14.1.0",
+        "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
         "eslint": "^9.17.0",
         "eslint-config-prettier": "^10.0.1",
         "eslint-plugin-vue": "^9.32.0",
+        "lucide-vue-next": "^0.555.0",
         "prettier": "^3.4.2",
         "prettier-plugin-organize-imports": "^4.1.0",
         "prettier-plugin-tailwindcss": "^0.6.11",
+        "reka-ui": "^2.6.1",
+        "tailwind-merge": "^3.4.0",
         "typescript": "^5.2.2",
         "typescript-eslint": "^8.23.0",
         "vite": "^7.0.4",
+        "vue": "^3.5.13",
         "vue-tsc": "^2.2.4"
     },
     "dependencies": {
-        "laravel-vite-plugin": "^2.0.0",
-        "tailwindcss": "^4.1.1",
-        "vue": "^3.5.13"
+        "tailwindcss": "^4.1.1"
     },
     "optionalDependencies": {
         "@rollup/rollup-linux-x64-gnu": "4.9.5",
