@@ -1,7 +1,7 @@
 <?php
 
-use Laravilt\AI\Providers\OpenAIProvider;
 use Laravilt\AI\Enums\OpenAIModel;
+use Laravilt\AI\Providers\OpenAIProvider;
 
 describe('OpenAIProvider', function () {
     beforeEach(function () {
