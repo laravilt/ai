@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Laravilt\AI;
 
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\ServiceProvider;
 use Laravilt\AI\Commands\InstallAiCommand;
 

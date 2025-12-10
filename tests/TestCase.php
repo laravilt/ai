@@ -13,7 +13,6 @@ class TestCase extends Orchestra
     {
         parent::setUp();
 
-
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');        // Additional setup if needed
     }
 
@@ -30,5 +29,6 @@ class TestCase extends Orchestra
         config()->set('database.default', 'testing');
 
         config()->set('database.default', 'sqlite');
-        config()->set('database.connections.sqlite.database', ':memory:');    }
+        config()->set('database.connections.sqlite.database', ':memory:');
+    }
 }

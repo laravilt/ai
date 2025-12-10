@@ -7,7 +7,6 @@ namespace Laravilt\AI\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\DB;
 use Laravilt\AI\AIManager;
 use Laravilt\AI\Models\AISession;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -72,7 +71,7 @@ class AIController extends Controller
             );
 
             foreach ($generator as $chunk) {
-                echo "data: ".json_encode(['content' => $chunk])."\n\n";
+                echo 'data: '.json_encode(['content' => $chunk])."\n\n";
                 ob_flush();
                 flush();
             }
