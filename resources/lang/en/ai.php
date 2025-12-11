@@ -37,6 +37,14 @@ return [
         'copy_message' => 'Copy message',
         'copied' => 'Copied to clipboard',
         'regenerate' => 'Regenerate response',
+        'mention_resource' => 'Mention a resource',
+        'press_enter' => 'Press',
+        'to_send' => 'to send',
+        'for_new_line' => 'for new line',
+        'to_mention' => 'to mention resource',
+        'understand_codebase' => 'Understand codebase',
+        'generate_report' => 'Generate report',
+        'debug_issue' => 'Debug issue',
     ],
 
     // Providers

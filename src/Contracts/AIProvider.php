@@ -62,6 +62,15 @@ interface AIProvider
     public function streamChat(array $messages, array $options = []): \Generator;
 
     /**
+     * Stream chat with real-time callback for each chunk
+     *
+     * @param  array<int, array{role: string, content: string}>  $messages
+     * @param  callable(string): void  $callback
+     * @param  array<string, mixed>  $options
+     */
+    public function streamChatRealtime(array $messages, callable $callback, array $options = []): void;
+
+    /**
      * Get configuration array for frontend
      *
      * @return array<string, mixed>

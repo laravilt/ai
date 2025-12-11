@@ -112,46 +112,97 @@ class OpenAIProvider extends BaseProvider
 
     public function streamChat(array $messages, array $options = []): Generator
     {
-        $response = $this->http()->withOptions(['stream' => true])
-            ->post('/chat/completions', [
-                'model' => $options['model'] ?? $this->getModel(),
-                'messages' => $messages,
-                'temperature' => $options['temperature'] ?? $this->getTemperature(),
-                'max_tokens' => $options['max_tokens'] ?? $this->getMaxTokens(),
-                'stream' => true,
-            ]);
+        // Use streamChatRealtime with a collector
+        $chunks = [];
+        $this->streamChatRealtime($messages, function ($chunk) use (&$chunks) {
+            $chunks[] = $chunk;
+        }, $options);
 
-        $body = $response->toPsrResponse()->getBody();
-
-        while (! $body->eof()) {
-            $line = $this->readLine($body);
-            if (str_starts_with($line, 'data: ')) {
-                $data = substr($line, 6);
-                if ($data === '[DONE]') {
-                    break;
-                }
-                $json = json_decode($data, true);
-                if (isset($json['choices'][0]['delta']['content'])) {
-                    yield $json['choices'][0]['delta']['content'];
-                }
-            }
+        foreach ($chunks as $chunk) {
+            yield $chunk;
         }
     }
 
-    /**
-     * @param  \Psr\Http\Message\StreamInterface  $stream
-     */
-    private function readLine($stream): string
+    public function streamChatRealtime(array $messages, callable $callback, array $options = []): void
     {
-        $line = '';
-        while (! $stream->eof()) {
-            $char = $stream->read(1);
-            if ($char === "\n") {
-                break;
-            }
-            $line .= $char;
+        $url = ($this->baseUrl ?? $this->getBaseUrl()).'/chat/completions';
+
+        $payload = [
+            'model' => $options['model'] ?? $this->getModel(),
+            'messages' => $messages,
+            'temperature' => $options['temperature'] ?? $this->getTemperature(),
+            'max_tokens' => $options['max_tokens'] ?? $this->getMaxTokens(),
+            'stream' => true,
+        ];
+
+        $buffer = '';
+        $httpCode = 0;
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($payload),
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer '.$this->getApiKey(),
+                'Content-Type: application/json',
+                'Accept: text/event-stream',
+            ],
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_HEADER => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_TIMEOUT => 120,
+            CURLOPT_WRITEFUNCTION => function ($ch, $data) use (&$buffer, &$httpCode, $callback) {
+                // Get HTTP code on first chunk
+                if ($httpCode === 0) {
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                }
+
+                // If error response, just collect
+                if ($httpCode !== 200) {
+                    $buffer .= $data;
+
+                    return strlen($data);
+                }
+
+                // Process streaming data
+                $buffer .= $data;
+
+                // Process complete lines
+                while (($pos = strpos($buffer, "\n")) !== false) {
+                    $line = trim(substr($buffer, 0, $pos));
+                    $buffer = substr($buffer, $pos + 1);
+
+                    if (str_starts_with($line, 'data: ')) {
+                        $jsonData = substr($line, 6);
+                        if ($jsonData === '[DONE]') {
+                            continue;
+                        }
+                        $json = json_decode($jsonData, true);
+                        if (isset($json['choices'][0]['delta']['content'])) {
+                            $callback($json['choices'][0]['delta']['content']);
+                        }
+                    }
+                }
+
+                return strlen($data);
+            },
+        ]);
+
+        curl_exec($ch);
+
+        $finalHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($error) {
+            throw new \RuntimeException("cURL Error: {$error}");
         }
 
-        return trim($line);
+        if ($finalHttpCode !== 200) {
+            $errorData = json_decode($buffer, true);
+            $errorMessage = $errorData['error']['message'] ?? "HTTP {$finalHttpCode}: {$buffer}";
+            throw new \RuntimeException("OpenAI API Error: {$errorMessage}");
+        }
     }
 }

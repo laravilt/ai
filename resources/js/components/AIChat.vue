@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { usePage } from '@inertiajs/vue3'
+import MarkdownIt from 'markdown-it'
 import {
   Send,
   Loader2,
@@ -17,7 +18,17 @@ import {
   MoreHorizontal,
   Pencil,
   MessageSquare,
+  Database,
+  AtSign,
 } from 'lucide-vue-next'
+
+// Initialize markdown parser
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true,
+  breaks: true,
+})
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
@@ -66,6 +77,19 @@ interface AIConfig {
   providers: Record<string, Provider>
 }
 
+interface Resource {
+  slug: string
+  label: string
+  singular: string
+  count: number
+  fields: string[]
+}
+
+interface MentionedResource {
+  slug: string
+  label: string
+}
+
 const props = withDefaults(
   defineProps<{
     initialSession?: Session
@@ -99,8 +123,17 @@ const sidebarOpen = ref(true)
 const selectedProvider = ref<string>('')
 const selectedModel = ref<string>('')
 
+// Resource mentions state
+const resources = ref<Resource[]>([])
+const showMentionDropdown = ref(false)
+const mentionQuery = ref('')
+const mentionStartIndex = ref(-1)
+const selectedMentionIndex = ref(0)
+const mentionedResources = ref<MentionedResource[]>([])
+const mentionDropdownRef = ref<HTMLElement | null>(null)
+
 const chatContainerRef = ref<HTMLElement | null>(null)
-const inputRef = ref<HTMLTextAreaElement | null>(null)
+const inputRef = ref<{ focus: () => void; el: { value: HTMLTextAreaElement | null } } | null>(null)
 const copiedMessageIndex = ref<number | null>(null)
 
 // Get CSRF token
@@ -136,6 +169,18 @@ const currentModelLabel = computed(() => {
   if (!selectedModel.value || !selectedProvider.value || !config.value) return ''
   const provider = config.value.providers[selectedProvider.value]
   return provider?.models[selectedModel.value] || selectedModel.value
+})
+
+// Filtered resources for mention dropdown
+const filteredResources = computed(() => {
+  if (!mentionQuery.value) return resources.value
+  const query = mentionQuery.value.toLowerCase()
+  return resources.value.filter(
+    (r) =>
+      r.label.toLowerCase().includes(query) ||
+      r.slug.toLowerCase().includes(query) ||
+      r.singular.toLowerCase().includes(query)
+  )
 })
 
 // Load config
@@ -181,11 +226,29 @@ async function loadSessions() {
   }
 }
 
+// Load available resources for @ mentions
+async function loadResources() {
+  try {
+    const response = await fetch(`${props.endpoint}/resources`, {
+      headers: {
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': csrfToken.value,
+      },
+      credentials: 'same-origin',
+    })
+    const data = await response.json()
+    resources.value = data.resources || []
+  } catch (error) {
+    console.error('Failed to load resources:', error)
+  }
+}
+
 // Create new session
 async function createSession() {
   currentSession.value = null
   messages.value = []
   input.value = ''
+  clearMentions()
   inputRef.value?.focus()
 }
 
@@ -237,8 +300,8 @@ async function sendMessage() {
   loading.value = true
 
   // Reset textarea height
-  if (inputRef.value) {
-    inputRef.value.style.height = 'auto'
+  if (inputRef.value?.el?.value) {
+    inputRef.value.el.value.style.height = 'auto'
   }
 
   await nextTick()
@@ -298,16 +361,46 @@ async function streamMessage() {
     timestamp: Date.now(),
   }
 
+  // Create session if this is a new conversation
+  let sessionId = currentSession.value?.id
+  if (!sessionId && messages.value.length === 0) {
+    try {
+      const sessionResponse = await fetch(`${props.endpoint}/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': csrfToken.value,
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          title: userMessage.content.substring(0, 50) + (userMessage.content.length > 50 ? '...' : ''),
+          provider: selectedProvider.value,
+          model: selectedModel.value,
+        }),
+      })
+      const sessionData = await sessionResponse.json()
+      if (sessionData.session) {
+        currentSession.value = sessionData.session
+        sessionId = sessionData.session.id
+      }
+    } catch (error) {
+      console.error('Failed to create session:', error)
+    }
+  }
+
   messages.value.push(userMessage)
   input.value = ''
   loading.value = true
   streaming.value = true
 
-  if (inputRef.value) {
-    inputRef.value.style.height = 'auto'
+  // Reset textarea height safely
+  await nextTick()
+  const textareaEl = inputRef.value?.el?.value
+  if (textareaEl) {
+    textareaEl.style.height = 'auto'
   }
 
-  await nextTick()
   scrollToBottom()
 
   const assistantMessage: Message = {
@@ -332,34 +425,52 @@ async function streamMessage() {
           .map((m) => ({ role: m.role, content: m.content })),
         provider: selectedProvider.value,
         model: selectedModel.value,
+        session_id: sessionId,
+        mentioned_resources: mentionedResources.value.map(r => r.slug),
       }),
     })
+
+    // Check if response is ok
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Stream response error:', response.status, errorText)
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
 
     const reader = response.body?.getReader()
     const decoder = new TextDecoder()
 
     if (reader) {
+      let buffer = ''
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+
+        // Keep the last incomplete line in buffer
+        buffer = lines.pop() || ''
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') break
+          const trimmedLine = line.trim()
+          if (trimmedLine.startsWith('data: ')) {
+            const data = trimmedLine.slice(6)
+            if (data === '[DONE]') continue
 
             try {
               const json = JSON.parse(data)
-              if (json.content) {
+              if (json.error) {
+                console.error('AI error:', json.error)
+                assistantMessage.content = `Error: ${json.error}`
+              } else if (json.content) {
                 assistantMessage.content += json.content
                 await nextTick()
                 scrollToBottom()
               }
-            } catch {
-              // Ignore parsing errors
+            } catch (parseError) {
+              // Ignore parsing errors for incomplete chunks
+              console.debug('Parse error (may be incomplete):', data)
             }
           }
         }
@@ -371,6 +482,15 @@ async function streamMessage() {
   } finally {
     loading.value = false
     streaming.value = false
+
+    // Clear mentioned resources after sending
+    clearMentions()
+
+    // Refresh sessions list to show the new/updated session
+    if (props.showSidebar) {
+      await loadSessions()
+    }
+
     await nextTick()
     scrollToBottom()
     inputRef.value?.focus()
@@ -384,9 +504,37 @@ function scrollToBottom() {
 }
 
 function handleKeydown(event: KeyboardEvent) {
+  // Handle mention dropdown navigation
+  if (showMentionDropdown.value && filteredResources.value.length > 0) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      selectedMentionIndex.value = Math.min(
+        selectedMentionIndex.value + 1,
+        filteredResources.value.length - 1
+      )
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      selectedMentionIndex.value = Math.max(selectedMentionIndex.value - 1, 0)
+      return
+    }
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault()
+      selectMention(filteredResources.value[selectedMentionIndex.value])
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      showMentionDropdown.value = false
+      return
+    }
+  }
+
+  // Normal enter to send
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
-    sendMessage()
+    streamMessage()
   }
 }
 
@@ -409,13 +557,93 @@ function autoResize(event: Event) {
   textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px'
 }
 
+// Handle input for @ mention detection
+function handleInput(event: Event) {
+  autoResize(event)
+
+  const textarea = event.target as HTMLTextAreaElement
+  const cursorPos = textarea.selectionStart
+  const textBeforeCursor = input.value.substring(0, cursorPos)
+
+  // Find the last @ symbol before cursor
+  const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+
+  if (lastAtIndex !== -1) {
+    // Check if @ is at start or preceded by whitespace
+    const charBefore = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : ' '
+    if (charBefore === ' ' || charBefore === '\n' || lastAtIndex === 0) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1)
+      // Only show dropdown if there's no space after @
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
+        mentionStartIndex.value = lastAtIndex
+        mentionQuery.value = textAfterAt
+        showMentionDropdown.value = true
+        selectedMentionIndex.value = 0
+        return
+      }
+    }
+  }
+
+  // Hide dropdown if no valid @ mention
+  showMentionDropdown.value = false
+  mentionQuery.value = ''
+  mentionStartIndex.value = -1
+}
+
+// Select a resource from the mention dropdown
+function selectMention(resource: Resource) {
+  const textarea = inputRef.value?.el?.value
+  if (!textarea) return
+
+  const beforeMention = input.value.substring(0, mentionStartIndex.value)
+  const afterCursor = input.value.substring(textarea.selectionStart)
+
+  // Insert the mention with a visual marker
+  const mentionText = `@${resource.label}`
+  input.value = beforeMention + mentionText + ' ' + afterCursor
+
+  // Add to mentioned resources if not already there
+  if (!mentionedResources.value.find(r => r.slug === resource.slug)) {
+    mentionedResources.value.push({
+      slug: resource.slug,
+      label: resource.label,
+    })
+  }
+
+  // Hide dropdown and reset
+  showMentionDropdown.value = false
+  mentionQuery.value = ''
+  mentionStartIndex.value = -1
+
+  // Focus back on textarea
+  nextTick(() => {
+    inputRef.value?.focus()
+  })
+}
+
+// Remove a mentioned resource
+function removeMention(slug: string) {
+  mentionedResources.value = mentionedResources.value.filter(r => r.slug !== slug)
+}
+
+// Clear all mentions when creating new session
+function clearMentions() {
+  mentionedResources.value = []
+}
+
 function formatTime(timestamp: number | undefined): string {
   if (!timestamp) return ''
   return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+function renderMarkdown(content: string): string {
+  if (!content) return ''
+  return md.render(content)
+}
+
 onMounted(async () => {
   await loadConfig()
+  await loadResources()
   if (props.showSidebar) {
     await loadSessions()
   }
@@ -432,7 +660,7 @@ watch(selectedProvider, (newProvider) => {
 </script>
 
 <template>
-  <div class="flex h-full bg-background">
+  <div class="flex h-full overflow-hidden rounded-xl border border-border bg-background shadow-sm">
     <!-- Sidebar -->
     <aside
       v-if="showSidebar"
@@ -496,7 +724,7 @@ watch(selectedProvider, (newProvider) => {
     <!-- Main Chat Area -->
     <div class="flex flex-1 flex-col bg-background">
       <!-- Header -->
-      <header class="flex h-14 items-center justify-between border-b border-border bg-card px-4 shadow-sm">
+      <header class="flex h-14 items-center justify-between border-b border-border bg-card/50 px-4 backdrop-blur-sm">
         <div class="flex items-center gap-3">
           <Button
             v-if="showSidebar"
@@ -598,17 +826,17 @@ watch(selectedProvider, (newProvider) => {
             </p>
           </div>
           <div class="flex flex-wrap items-center justify-center gap-2">
-            <Button variant="outline" size="sm" class="gap-2 text-xs" @click="input = 'Help me understand this codebase'">
+            <Button variant="outline" size="sm" class="gap-2 text-xs" @click="input = trans('laravilt-ai::ai.chat.understand_codebase')">
               <Sparkles class="h-3 w-3" />
-              Understand codebase
+              {{ trans('laravilt-ai::ai.chat.understand_codebase') }}
             </Button>
-            <Button variant="outline" size="sm" class="gap-2 text-xs" @click="input = 'Generate a summary report'">
+            <Button variant="outline" size="sm" class="gap-2 text-xs" @click="input = trans('laravilt-ai::ai.chat.generate_report')">
               <Sparkles class="h-3 w-3" />
-              Generate report
+              {{ trans('laravilt-ai::ai.chat.generate_report') }}
             </Button>
-            <Button variant="outline" size="sm" class="gap-2 text-xs" @click="input = 'Help me debug an issue'">
+            <Button variant="outline" size="sm" class="gap-2 text-xs" @click="input = trans('laravilt-ai::ai.chat.debug_issue')">
               <Sparkles class="h-3 w-3" />
-              Debug issue
+              {{ trans('laravilt-ai::ai.chat.debug_issue') }}
             </Button>
           </div>
         </div>
@@ -640,7 +868,19 @@ watch(selectedProvider, (newProvider) => {
                   : 'bg-card border border-border'
               ]"
             >
-              <div class="whitespace-pre-wrap text-sm leading-relaxed">{{ message.content }}</div>
+              <!-- User messages: plain text with auto direction -->
+              <div
+                v-if="message.role === 'user'"
+                dir="auto"
+                class="whitespace-pre-wrap text-sm leading-relaxed text-start"
+              >{{ message.content }}</div>
+              <!-- Assistant messages: markdown with auto direction -->
+              <div
+                v-else
+                dir="auto"
+                class="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed text-start prose-p:text-start prose-li:text-start prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:rounded-lg prose-pre:text-start prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-[''] prose-code:after:content-['']"
+                v-html="renderMarkdown(message.content)"
+              ></div>
               <div
                 :class="[
                   'mt-2 flex items-center justify-between gap-3 text-xs',
@@ -688,31 +928,117 @@ watch(selectedProvider, (newProvider) => {
       </div>
 
       <!-- Input Area -->
-      <div class="border-t border-border bg-card p-4 shadow-[0_-1px_5px_rgba(0,0,0,0.03)]">
+      <div class="border-t border-border bg-card/50 p-4 backdrop-blur-sm">
         <div class="mx-auto max-w-3xl">
-          <div class="relative flex items-end gap-3 rounded-xl border border-input bg-background p-2 shadow-sm transition-shadow focus-within:shadow-md focus-within:ring-2 focus-within:ring-ring/50">
-            <Textarea
-              ref="inputRef"
-              v-model="input"
-              rows="1"
-              class="min-h-[44px] flex-1 resize-none border-0 bg-transparent px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:ring-0"
-              :placeholder="trans('laravilt-ai::ai.chat.type_message')"
-              :disabled="loading || !config?.configured"
-              @keydown="handleKeydown"
-              @input="autoResize"
-            />
-            <Button
-              size="icon"
-              class="h-10 w-10 shrink-0 rounded-lg shadow-sm transition-transform hover:scale-105"
-              :disabled="!canSend"
-              @click="sendMessage"
+          <!-- Mentioned Resources Chips -->
+          <div v-if="mentionedResources.length > 0" class="mb-3 flex flex-wrap gap-2">
+            <div
+              v-for="resource in mentionedResources"
+              :key="resource.slug"
+              class="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
             >
-              <Loader2 v-if="loading" class="h-5 w-5 animate-spin" />
-              <Send v-else class="h-5 w-5" />
-            </Button>
+              <Database class="h-3 w-3" />
+              <span>{{ resource.label }}</span>
+              <button
+                type="button"
+                class="ml-1 rounded-full p-0.5 hover:bg-primary/20"
+                @click="removeMention(resource.slug)"
+              >
+                <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="relative">
+            <!-- Mention Dropdown -->
+            <div
+              v-if="showMentionDropdown && filteredResources.length > 0"
+              ref="mentionDropdownRef"
+              class="absolute bottom-full left-0 z-50 mb-2 w-72 overflow-hidden rounded-xl border border-border bg-popover shadow-lg"
+            >
+              <div class="px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+                <div class="flex items-center gap-2">
+                  <AtSign class="h-3.5 w-3.5" />
+                  <span>{{ trans('laravilt-ai::ai.chat.mention_resource') || 'Mention a resource' }}</span>
+                </div>
+              </div>
+              <ScrollArea class="max-h-64">
+                <div class="p-1">
+                  <button
+                    v-for="(resource, index) in filteredResources"
+                    :key="resource.slug"
+                    type="button"
+                    :class="[
+                      'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                      index === selectedMentionIndex
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-foreground hover:bg-accent'
+                    ]"
+                    @click="selectMention(resource)"
+                    @mouseenter="selectedMentionIndex = index"
+                  >
+                    <div
+                      :class="[
+                        'flex h-8 w-8 items-center justify-center rounded-lg',
+                        index === selectedMentionIndex ? 'bg-primary-foreground/20' : 'bg-muted'
+                      ]"
+                    >
+                      <Database
+                        :class="[
+                          'h-4 w-4',
+                          index === selectedMentionIndex ? 'text-primary-foreground' : 'text-muted-foreground'
+                        ]"
+                      />
+                    </div>
+                    <div class="flex-1 text-start">
+                      <div class="font-medium">{{ resource.label }}</div>
+                      <div
+                        :class="[
+                          'text-xs',
+                          index === selectedMentionIndex ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                        ]"
+                      >
+                        {{ resource.count }} {{ resource.count === 1 ? 'record' : 'records' }}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </ScrollArea>
+              <div class="border-t border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                <kbd class="rounded bg-background px-1.5 py-0.5 font-mono text-[10px]">↑↓</kbd> navigate •
+                <kbd class="rounded bg-background px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd> select •
+                <kbd class="rounded bg-background px-1.5 py-0.5 font-mono text-[10px]">Esc</kbd> close
+              </div>
+            </div>
+
+            <div class="flex items-end gap-3 rounded-2xl border border-input bg-background p-3 shadow-sm transition-all duration-200 focus-within:shadow-md focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50">
+              <Textarea
+                ref="inputRef"
+                v-model="input"
+                rows="1"
+                class="min-h-[44px] flex-1 resize-none border-0 bg-transparent px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:ring-0"
+                :placeholder="trans('laravilt-ai::ai.chat.type_message')"
+                :disabled="loading || !config?.configured"
+                @keydown="handleKeydown"
+                @input="handleInput"
+              />
+              <Button
+                size="icon"
+                class="h-10 w-10 shrink-0 rounded-xl shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md"
+                :disabled="!canSend"
+                @click="streamMessage"
+              >
+                <Loader2 v-if="loading" class="h-5 w-5 animate-spin" />
+                <Send v-else class="h-5 w-5" />
+              </Button>
+            </div>
           </div>
           <p class="mt-3 text-center text-xs text-muted-foreground">
-            Press <kbd class="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd> to send • <kbd class="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">Shift+Enter</kbd> for new line
+            {{ trans('laravilt-ai::ai.chat.press_enter') }} <kbd class="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd> {{ trans('laravilt-ai::ai.chat.to_send') }} •
+            <kbd class="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">Shift+Enter</kbd> {{ trans('laravilt-ai::ai.chat.for_new_line') }} •
+            <kbd class="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">@</kbd> {{ trans('laravilt-ai::ai.chat.to_mention') }}
           </p>
         </div>
       </div>

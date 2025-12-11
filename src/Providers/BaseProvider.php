@@ -160,4 +160,14 @@ abstract class BaseProvider implements AIProvider
             'configured' => $this->isConfigured(),
         ];
     }
+
+    /**
+     * Default implementation using streamChat generator
+     */
+    public function streamChatRealtime(array $messages, callable $callback, array $options = []): void
+    {
+        foreach ($this->streamChat($messages, $options) as $chunk) {
+            $callback($chunk);
+        }
+    }
 }

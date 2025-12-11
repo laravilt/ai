@@ -37,6 +37,14 @@ return [
         'copy_message' => 'نسخ الرسالة',
         'copied' => 'تم النسخ',
         'regenerate' => 'إعادة توليد الرد',
+        'mention_resource' => 'الإشارة إلى مورد',
+        'press_enter' => 'اضغط',
+        'to_send' => 'للإرسال',
+        'for_new_line' => 'لسطر جديد',
+        'to_mention' => 'للإشارة إلى مورد',
+        'understand_codebase' => 'فهم الكود',
+        'generate_report' => 'إنشاء تقرير',
+        'debug_issue' => 'تصحيح مشكلة',
     ],
 
     // Providers

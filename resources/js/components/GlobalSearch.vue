@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Search, Loader2, X, Sparkles, ArrowRight, Command, FileText, Users, Package, Settings, Database } from 'lucide-vue-next'
 import { usePage } from '@inertiajs/vue3'
 import * as LucideIcons from 'lucide-vue-next'
-import { useLocalization } from '@/composables/useLocalization'
+import { useLocalization } from '@laravilt/support/composables'
 
 interface SearchResult {
   id: string | number
