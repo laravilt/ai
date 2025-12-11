@@ -59,13 +59,13 @@ const useAI = ref(false)
 
 // Initialize AI mode from config
 onMounted(() => {
-  useAI.value = page.props.panel?.globalSearchConfig?.useAI ?? false
+  useAI.value = page.props?.panel?.globalSearchConfig?.useAI ?? false
 })
 
-const hasGlobalSearch = computed(() => page.props.panel?.hasGlobalSearch ?? true)
-const hasAIConfig = computed(() => page.props.panel?.hasAI ?? false)
-const endpoint = computed(() => page.props.panel?.globalSearchEndpoint ?? '/global-search')
-const debounceMs = computed(() => page.props.panel?.globalSearchConfig?.debounce ?? 300)
+const hasGlobalSearch = computed(() => page.props?.panel?.hasGlobalSearch ?? true)
+const hasAIConfig = computed(() => page.props?.panel?.hasAI ?? false)
+const endpoint = computed(() => page.props?.panel?.globalSearchEndpoint ?? '/global-search')
+const debounceMs = computed(() => page.props?.panel?.globalSearchConfig?.debounce ?? 300)
 
 // Translation helper with proper keys from laravilt-ai::ai.search.*
 const t = computed(() => ({

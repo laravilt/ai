@@ -29,7 +29,7 @@ const page = usePage<{ panel?: { path: string } }>();
 
 // Get the endpoint based on the panel path
 const endpoint = computed(() => {
-    const panelPath = page.props.panel?.path || 'admin';
+    const panelPath = page.props?.panel?.path || 'admin';
     return `/${panelPath}/ai`;
 });
 
