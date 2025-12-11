@@ -169,7 +169,7 @@ class ResourceQueryTool
                 'description' => 'List all available resources in the admin panel with their record counts',
                 'parameters' => [
                     'type' => 'object',
-                    'properties' => new \stdClass(),
+                    'properties' => new \stdClass,
                     'required' => [],
                 ],
             ],

@@ -37,7 +37,7 @@ class AIController extends Controller
             if (in_array($slug, $mentionedResources)) {
                 $focusedResources .= "\n### {$info['label']} (slug: `{$slug}`)\n";
                 $focusedResources .= "- **Total records**: {$info['count']}\n";
-                $focusedResources .= "- **All fields**: ".implode(', ', $info['fields'])."\n";
+                $focusedResources .= '- **All fields**: '.implode(', ', $info['fields'])."\n";
             }
         }
 
