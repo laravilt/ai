@@ -27,6 +27,7 @@ export default defineConfig({
                 'clsx',
                 'class-variance-authority',
                 '@vueuse/core',
+                'markdown-it',
                 /@laravilt\/.*/,
                 // External app-level imports (provided by consuming app)
                 /^@\/components\/.*/,
@@ -45,6 +46,7 @@ export default defineConfig({
                     clsx: 'clsx',
                     'class-variance-authority': 'ClassVarianceAuthority',
                     '@vueuse/core': 'VueUseCore',
+                    'markdown-it': 'MarkdownIt',
                 },
                 assetFileNames: (assetInfo) => {
                     if (assetInfo.name === 'style.css') return 'style.css'

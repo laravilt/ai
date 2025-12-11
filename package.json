@@ -55,6 +55,8 @@
     },
     "peerDependencies": {
         "@inertiajs/vue3": "^2.0.0",
+        "@laravilt/support": "^1.0.0",
+        "markdown-it": "^14.0.0",
         "vue": "^3.3.0"
     },
     "devDependencies": {
