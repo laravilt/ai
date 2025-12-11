@@ -48,6 +48,11 @@ class AIServiceProvider extends ServiceProvider
                 __DIR__.'/../resources/lang' => lang_path('vendor/laravilt-ai'),
             ], 'laravilt-ai-lang');
 
+            // Publish Vue components
+            $this->publishes([
+                __DIR__.'/../resources/js/components' => resource_path('js/components/laravilt/ai'),
+            ], 'laravilt-ai-views');
+
             $this->commands([
                 InstallAiCommand::class,
             ]);
