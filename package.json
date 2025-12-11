@@ -1,6 +1,6 @@
 {
     "name": "@laravilt/ai",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "AI-powered search and chat for Laravilt. Supports OpenAI, Anthropic, Gemini, and DeepSeek with global search spotlight and chat UI.",
     "author": "Fady Mondy <info@3x1.io>",
     "license": "MIT",
