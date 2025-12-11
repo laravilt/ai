@@ -1,7 +1,5 @@
 <?php
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
 describe('AI Routes', function () {
     it('ai config endpoint returns json', function () {
         // This test requires full panel setup with routes registered

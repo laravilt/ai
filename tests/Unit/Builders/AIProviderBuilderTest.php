@@ -1,9 +1,9 @@
 <?php
 
 use Laravilt\AI\Builders\AIProviderBuilder;
-use Laravilt\AI\Providers\OpenAIProvider;
-use Laravilt\AI\Providers\AnthropicProvider;
 use Laravilt\AI\Enums\OpenAIModel;
+use Laravilt\AI\Providers\AnthropicProvider;
+use Laravilt\AI\Providers\OpenAIProvider;
 
 describe('AIProviderBuilder', function () {
     beforeEach(function () {
