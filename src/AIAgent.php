@@ -26,6 +26,9 @@ class AIAgent
     /** @var array<int, string> */
     protected array $searchable = [];
 
+    /** @var array<int, AIColumn> */
+    protected array $columns = [];
+
     /** @var array<int, Tool> */
     protected array $tools = [];
 
@@ -41,6 +44,10 @@ class AIAgent
     protected bool $canQuery = true;
 
     protected ?Closure $customHandler = null;
+
+    protected ?string $aiProvider = null;
+
+    protected string|\BackedEnum|null $aiModel = null;
 
     public static function make(): static
     {
@@ -84,6 +91,37 @@ class AIAgent
     public function searchable(array $columns): static
     {
         $this->searchable = $columns;
+
+        return $this;
+    }
+
+    /**
+     * @param  array<int, AIColumn>  $columns
+     */
+    public function columns(array $columns): static
+    {
+        $this->columns = $columns;
+
+        return $this;
+    }
+
+    public function addColumn(AIColumn $column): static
+    {
+        $this->columns[] = $column;
+
+        return $this;
+    }
+
+    public function provider(string $provider): static
+    {
+        $this->aiProvider = $provider;
+
+        return $this;
+    }
+
+    public function aiModel(string|\BackedEnum $model): static
+    {
+        $this->aiModel = $model;
 
         return $this;
     }
@@ -184,11 +222,38 @@ class AIAgent
     }
 
     /**
+     * @return array<int, AIColumn>
+     */
+    public function getColumns(): array
+    {
+        return $this->columns;
+    }
+
+    /**
      * @return array<int, Tool>
      */
     public function getTools(): array
     {
         return $this->tools;
+    }
+
+    public function getProvider(): ?string
+    {
+        return $this->aiProvider;
+    }
+
+    public function getAiModel(): string|\BackedEnum|null
+    {
+        return $this->aiModel;
+    }
+
+    public function getAiModelValue(): ?string
+    {
+        if ($this->aiModel instanceof \BackedEnum) {
+            return $this->aiModel->value;
+        }
+
+        return $this->aiModel;
     }
 
     /**
@@ -266,6 +331,7 @@ class AIAgent
             'description' => $this->description,
             'model' => $this->model,
             'searchable' => $this->searchable,
+            'columns' => array_map(fn (AIColumn $col) => $col->toArray(), $this->columns),
             'capabilities' => [
                 'create' => $this->canCreate,
                 'update' => $this->canUpdate,
@@ -274,6 +340,8 @@ class AIAgent
             ],
             'tools' => array_map(fn (Tool $tool) => $tool->toArray(), $this->tools),
             'metadata' => $this->metadata,
+            'provider' => $this->aiProvider,
+            'aiModel' => $this->getAiModelValue(),
         ];
     }
 }
