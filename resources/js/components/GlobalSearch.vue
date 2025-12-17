@@ -309,11 +309,13 @@ defineExpose({ open, close })
     >
       <div
         v-if="isOpen"
-        class="fixed inset-0 z-50 overflow-y-auto p-4 pt-[15vh] sm:p-6 sm:pt-[20vh]"
-        @click.self="close"
+        class="fixed inset-0 z-50 overflow-y-auto p-4 pt-[25vh] sm:p-6 sm:pt-[20vh]"
       >
-        <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" />
+        <!-- Backdrop - click to close -->
+        <div
+          class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+          @click="close"
+        />
 
         <!-- Modal -->
         <Transition
@@ -493,7 +495,8 @@ defineExpose({ open, close })
                 <template v-if="totalResults > 0">{{ trans('laravilt-ai::ai.search.results_count', { count: totalResults }) }}</template>
                 <template v-else>{{ t.type_to_search }}</template>
               </span>
-              <div class="flex items-center gap-3 text-xs text-muted-foreground">
+              <!-- Keyboard hints - hidden on mobile -->
+              <div class="hidden items-center gap-3 text-xs text-muted-foreground sm:flex">
                 <div class="flex items-center gap-1">
                   <kbd class="flex h-5 items-center justify-center rounded border border-input bg-background px-1.5 font-mono text-[10px] font-medium">↑</kbd>
                   <kbd class="flex h-5 items-center justify-center rounded border border-input bg-background px-1.5 font-mono text-[10px] font-medium">↓</kbd>
@@ -508,6 +511,15 @@ defineExpose({ open, close })
                   <span class="ms-1">{{ t.to_close }}</span>
                 </div>
               </div>
+              <!-- Mobile close button -->
+              <button
+                type="button"
+                class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground sm:hidden"
+                @click="close"
+              >
+                <X class="h-3.5 w-3.5" />
+                <span>{{ t.to_close }}</span>
+              </button>
             </div>
           </div>
         </Transition>
