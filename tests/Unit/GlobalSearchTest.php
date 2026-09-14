@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Collection;
 use Laravilt\AI\GlobalSearch;
 
 describe('GlobalSearch', function () {
@@ -10,7 +12,7 @@ describe('GlobalSearch', function () {
     it('can register a resource', function () {
         $result = $this->search->registerResource(
             resource: 'users',
-            model: \Illuminate\Foundation\Auth\User::class,
+            model: User::class,
             searchable: ['name', 'email'],
             label: 'Users',
             icon: 'Users',
@@ -35,14 +37,14 @@ describe('GlobalSearch', function () {
     it('returns empty collection for empty query', function () {
         $results = $this->search->search('');
 
-        expect($results)->toBeInstanceOf(\Illuminate\Support\Collection::class);
+        expect($results)->toBeInstanceOf(Collection::class);
         expect($results)->toBeEmpty();
     });
 
     it('returns empty collection for whitespace query', function () {
         $results = $this->search->search('   ');
 
-        expect($results)->toBeInstanceOf(\Illuminate\Support\Collection::class);
+        expect($results)->toBeInstanceOf(Collection::class);
         expect($results)->toBeEmpty();
     });
 });

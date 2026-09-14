@@ -6,6 +6,7 @@ namespace Laravilt\AI\Providers;
 
 use Generator;
 use Laravilt\AI\Enums\AnthropicModel;
+use Psr\Http\Message\StreamInterface;
 
 class AnthropicProvider extends BaseProvider
 {
@@ -196,7 +197,7 @@ class AnthropicProvider extends BaseProvider
     }
 
     /**
-     * @param  \Psr\Http\Message\StreamInterface  $stream
+     * @param  StreamInterface  $stream
      */
     private function readLine($stream): string
     {

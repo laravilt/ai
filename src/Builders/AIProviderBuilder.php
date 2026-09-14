@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace Laravilt\AI\Builders;
 
 use Laravilt\AI\Contracts\AIProvider;
+use Laravilt\AI\Providers\AnthropicProvider;
+use Laravilt\AI\Providers\DeepSeekProvider;
+use Laravilt\AI\Providers\GeminiProvider;
+use Laravilt\AI\Providers\OpenAIProvider;
+use Laravilt\AI\Providers\PerplexityProvider;
 
 class AIProviderBuilder
 {
@@ -45,7 +50,7 @@ class AIProviderBuilder
      */
     public function openai(?callable $configure = null): static
     {
-        return $this->provider(\Laravilt\AI\Providers\OpenAIProvider::class, $configure);
+        return $this->provider(OpenAIProvider::class, $configure);
     }
 
     /**
@@ -53,7 +58,7 @@ class AIProviderBuilder
      */
     public function anthropic(?callable $configure = null): static
     {
-        return $this->provider(\Laravilt\AI\Providers\AnthropicProvider::class, $configure);
+        return $this->provider(AnthropicProvider::class, $configure);
     }
 
     /**
@@ -61,7 +66,7 @@ class AIProviderBuilder
      */
     public function gemini(?callable $configure = null): static
     {
-        return $this->provider(\Laravilt\AI\Providers\GeminiProvider::class, $configure);
+        return $this->provider(GeminiProvider::class, $configure);
     }
 
     /**
@@ -69,7 +74,7 @@ class AIProviderBuilder
      */
     public function deepseek(?callable $configure = null): static
     {
-        return $this->provider(\Laravilt\AI\Providers\DeepSeekProvider::class, $configure);
+        return $this->provider(DeepSeekProvider::class, $configure);
     }
 
     /**
@@ -77,7 +82,7 @@ class AIProviderBuilder
      */
     public function perplexity(?callable $configure = null): static
     {
-        return $this->provider(\Laravilt\AI\Providers\PerplexityProvider::class, $configure);
+        return $this->provider(PerplexityProvider::class, $configure);
     }
 
     /**

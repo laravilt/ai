@@ -3,6 +3,7 @@
 namespace Laravilt\AI\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravilt\AI\AIServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 class TestCase extends Orchestra
@@ -20,7 +21,7 @@ class TestCase extends Orchestra
     protected function getPackageProviders($app): array
     {
         return [
-            \Laravilt\AI\AIServiceProvider::class,
+            AIServiceProvider::class,
         ];
     }
 

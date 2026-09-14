@@ -6,6 +6,7 @@ namespace Laravilt\AI\Providers;
 
 use Generator;
 use Laravilt\AI\Enums\DeepSeekModel;
+use Psr\Http\Message\StreamInterface;
 
 class DeepSeekProvider extends BaseProvider
 {
@@ -139,7 +140,7 @@ class DeepSeekProvider extends BaseProvider
     }
 
     /**
-     * @param  \Psr\Http\Message\StreamInterface  $stream
+     * @param  StreamInterface  $stream
      */
     private function readLine($stream): string
     {

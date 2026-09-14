@@ -6,6 +6,7 @@ namespace Laravilt\AI\Providers;
 
 use Generator;
 use Laravilt\AI\Enums\PerplexityModel;
+use Psr\Http\Message\StreamInterface;
 
 class PerplexityProvider extends BaseProvider
 {
@@ -106,7 +107,7 @@ class PerplexityProvider extends BaseProvider
     }
 
     /**
-     * @param  \Psr\Http\Message\StreamInterface  $stream
+     * @param  StreamInterface  $stream
      */
     private function readLine($stream): string
     {

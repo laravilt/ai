@@ -7,6 +7,7 @@ namespace Laravilt\AI\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
 use Laravilt\AI\AIManager;
 use Laravilt\AI\Models\AISession;
 use Laravilt\AI\Tools\ResourceQueryTool;
@@ -296,7 +297,7 @@ SYSTEM;
         ]);
 
         $session = AISession::create([
-            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'id' => (string) Str::uuid(),
             'user_id' => $request->user()?->id,
             'title' => $request->input('title', 'New Chat'),
             'provider' => $request->input('provider'),
