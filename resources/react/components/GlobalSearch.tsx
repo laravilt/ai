@@ -154,7 +154,13 @@ export default function GlobalSearch({ placeholder = undefined, onSelect, onClos
 
     const totalResults = flatResults.length;
 
+    // Id of the most recent search, so an older in-flight response cannot overwrite newer results.
+    const latestSearch = useRef(0);
+
     async function performSearch(searchQuery: string) {
+        const searchId = ++latestSearch.current;
+        const isLatest = () => searchId === latestSearch.current;
+
         setLoading(true);
         setSelectedIndex(0);
 
@@ -163,12 +169,18 @@ export default function GlobalSearch({ placeholder = undefined, onSelect, onClos
                 `${latest.current.endpoint}?query=${encodeURIComponent(searchQuery)}&useAI=${useAIRef.current}`,
             );
             const data = await response.json();
-            setResults(data.results || []);
+            if (isLatest()) {
+                setResults(data.results || []);
+            }
         } catch (error) {
             console.error('Search error:', error);
-            setResults([]);
+            if (isLatest()) {
+                setResults([]);
+            }
         } finally {
-            setLoading(false);
+            if (isLatest()) {
+                setLoading(false);
+            }
         }
     }
 
@@ -187,7 +199,10 @@ export default function GlobalSearch({ placeholder = undefined, onSelect, onClos
         }
 
         if (!query.trim()) {
+            // Invalidate any in-flight search so it cannot repopulate the cleared results.
+            latestSearch.current++;
             setResults([]);
+            setLoading(false);
             return;
         }
 

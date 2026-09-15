@@ -30,9 +30,16 @@ export function useGlobalSearch(endpoint = '/laravilt-ai/search') {
     return results.value.reduce((total, group) => total + group.results.length, 0)
   })
 
-  async function search(searchQuery: string) {
+  // Id of the most recent search, so an older in-flight response cannot overwrite newer state.
+  let latestSearch = 0
+
+  async function search(searchQuery: string): Promise<SearchGroup[]> {
+    const searchId = ++latestSearch
+    const isLatest = () => searchId === latestSearch
+
     if (!searchQuery.trim()) {
       results.value = []
+      loading.value = false
       return []
     }
 
@@ -44,14 +51,21 @@ export function useGlobalSearch(endpoint = '/laravilt-ai/search') {
         `${endpoint}?query=${encodeURIComponent(searchQuery)}&useAI=${useAI.value}`
       )
       const data = await response.json()
-      results.value = data.results || []
-      return results.value
+      const next: SearchGroup[] = data.results || []
+      if (isLatest()) {
+        results.value = next
+      }
+      return next
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Search failed'
-      results.value = []
+      if (isLatest()) {
+        error.value = e instanceof Error ? e.message : 'Search failed'
+        results.value = []
+      }
       throw e
     } finally {
-      loading.value = false
+      if (isLatest()) {
+        loading.value = false
+      }
     }
   }
 

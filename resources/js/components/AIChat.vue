@@ -113,7 +113,7 @@ const page = usePage()
 const config = ref<AIConfig | null>(null)
 const sessions = ref<Session[]>([])
 const currentSession = ref<Session | null>(props.initialSession || null)
-const messages = ref<Message[]>([])
+const messages = ref<Message[]>(props.initialSession?.messages ?? [])
 const input = ref('')
 const loading = ref(false)
 const streaming = ref(false)
@@ -442,7 +442,8 @@ async function streamMessage() {
 
     if (reader) {
       let buffer = ''
-      while (true) {
+      let finished = false
+      while (!finished) {
         const { done, value } = await reader.read()
         if (done) break
 
@@ -456,7 +457,12 @@ async function streamMessage() {
           const trimmedLine = line.trim()
           if (trimmedLine.startsWith('data: ')) {
             const data = trimmedLine.slice(6)
-            if (data === '[DONE]') continue
+            if (data === '[DONE]') {
+              // The server signalled the end of the stream: stop reading.
+              finished = true
+              await reader.cancel().catch(() => {})
+              break
+            }
 
             try {
               const json = JSON.parse(data)

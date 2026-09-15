@@ -44,8 +44,25 @@ export function useAI(endpoint = '/laravilt-ai') {
     return Object.entries(provider.models).map(([key, label]) => ({ key, label }))
   })
 
+  function selectDefaults(data: AIConfig | null) {
+    if (data?.default) {
+      selectedProvider.value = data.default
+      const provider = data.providers[data.default]
+      if (provider) {
+        selectedModel.value = provider.defaultModel
+      }
+    }
+  }
+
   async function loadConfig() {
-    if (config.value) return config.value
+    if (config.value) {
+      // The config is shared, but selections are per composable instance: initialize them for later callers too.
+      if (!selectedProvider.value) {
+        selectDefaults(config.value)
+      }
+
+      return config.value
+    }
 
     loading.value = true
     error.value = null
@@ -53,14 +70,7 @@ export function useAI(endpoint = '/laravilt-ai') {
     try {
       const response = await fetch(`${endpoint}/config`)
       config.value = await response.json()
-
-      if (config.value?.default) {
-        selectedProvider.value = config.value.default
-        const provider = config.value.providers[config.value.default]
-        if (provider) {
-          selectedModel.value = provider.defaultModel
-        }
-      }
+      selectDefaults(config.value)
 
       return config.value
     } catch (e) {
@@ -117,17 +127,22 @@ export function useAI(endpoint = '/laravilt-ai') {
       const decoder = new TextDecoder()
 
       if (reader) {
+        let buffer = ''
+
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
-          const chunk = decoder.decode(value)
-          const lines = chunk.split('\n')
+          // SSE records can span chunks: keep the trailing incomplete line for the next read.
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6)
-              if (data === '[DONE]') break
+            const trimmedLine = line.trim()
+            if (trimmedLine.startsWith('data: ')) {
+              const data = trimmedLine.slice(6)
+              if (data === '[DONE]') return
 
               try {
                 const json = JSON.parse(data)

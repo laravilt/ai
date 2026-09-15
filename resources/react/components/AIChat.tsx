@@ -522,7 +522,8 @@ export default function AIChat({
 
             if (reader) {
                 let buffer = '';
-                while (true) {
+                let finished = false;
+                while (!finished) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
@@ -536,7 +537,12 @@ export default function AIChat({
                         const trimmedLine = line.trim();
                         if (trimmedLine.startsWith('data: ')) {
                             const data = trimmedLine.slice(6);
-                            if (data === '[DONE]') continue;
+                            if (data === '[DONE]') {
+                                // The server signalled the end of the stream: stop reading.
+                                finished = true;
+                                await reader.cancel().catch(() => {});
+                                break;
+                            }
 
                             try {
                                 const json = JSON.parse(data);
