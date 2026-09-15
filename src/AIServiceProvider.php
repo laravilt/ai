@@ -6,6 +6,7 @@ namespace Laravilt\AI;
 
 use Illuminate\Support\ServiceProvider;
 use Laravilt\AI\Commands\InstallAiCommand;
+use Laravilt\Support\Frontend;
 
 class AIServiceProvider extends ServiceProvider
 {
@@ -48,9 +49,13 @@ class AIServiceProvider extends ServiceProvider
                 __DIR__.'/../resources/lang' => lang_path('vendor/laravilt-ai'),
             ], 'laravilt-ai-lang');
 
-            // Publish Vue components
+            // Publish frontend components for the application's stack (Vue or React)
+            $frontend = class_exists(Frontend::class)
+                ? Frontend::resourceDirectory()
+                : 'js';
+
             $this->publishes([
-                __DIR__.'/../resources/js/components' => resource_path('js/components/laravilt/ai'),
+                __DIR__."/../resources/{$frontend}/components" => resource_path('js/components/laravilt/ai'),
             ], 'laravilt-ai-views');
 
             $this->commands([
