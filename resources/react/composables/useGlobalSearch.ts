@@ -32,14 +32,21 @@ export function useGlobalSearch(endpoint = '/laravilt-ai/search') {
 
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Id of the most recent search, so an older in-flight response cannot overwrite newer state.
+    const latestSearch = useRef(0);
+
     const hasResults = results.length > 0;
 
     const totalResults = results.reduce((total, group) => total + group.results.length, 0);
 
     const search = useCallback(
         async (searchQuery: string): Promise<SearchGroup[]> => {
+            const searchId = ++latestSearch.current;
+            const isLatest = () => searchId === latestSearch.current;
+
             if (!searchQuery.trim()) {
                 setResults([]);
+                setLoading(false);
                 return [];
             }
 
@@ -52,14 +59,20 @@ export function useGlobalSearch(endpoint = '/laravilt-ai/search') {
                 );
                 const data = await response.json();
                 const next: SearchGroup[] = data.results || [];
-                setResults(next);
+                if (isLatest()) {
+                    setResults(next);
+                }
                 return next;
             } catch (e) {
-                setError(e instanceof Error ? e.message : 'Search failed');
-                setResults([]);
+                if (isLatest()) {
+                    setError(e instanceof Error ? e.message : 'Search failed');
+                    setResults([]);
+                }
                 throw e;
             } finally {
-                setLoading(false);
+                if (isLatest()) {
+                    setLoading(false);
+                }
             }
         },
         [endpoint],

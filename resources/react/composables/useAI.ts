@@ -94,15 +94,7 @@ export function useAI(endpoint = '/laravilt-ai') {
     }, [config, selectedProvider]);
 
     const loadConfig = useCallback(async (): Promise<AIConfig | null> => {
-        if (state.config) return state.config;
-
-        setState({ loading: true, error: null });
-
-        try {
-            const response = await fetch(`${endpoint}/config`);
-            const data: AIConfig | null = await response.json();
-            setState({ config: data });
-
+        const selectDefaults = (data: AIConfig | null) => {
             if (data?.default) {
                 setSelectedProvider(data.default);
                 const provider = data.providers[data.default];
@@ -110,6 +102,24 @@ export function useAI(endpoint = '/laravilt-ai') {
                     setSelectedModel(provider.defaultModel);
                 }
             }
+        };
+
+        if (state.config) {
+            // The config is shared, but selections are per hook instance: initialize them for later callers too.
+            if (!selectedProviderRef.current) {
+                selectDefaults(state.config);
+            }
+
+            return state.config;
+        }
+
+        setState({ loading: true, error: null });
+
+        try {
+            const response = await fetch(`${endpoint}/config`);
+            const data: AIConfig | null = await response.json();
+            setState({ config: data });
+            selectDefaults(data);
 
             return state.config;
         } catch (e) {
@@ -168,17 +178,22 @@ export function useAI(endpoint = '/laravilt-ai') {
                 const decoder = new TextDecoder();
 
                 if (reader) {
+                    let buffer = '';
+
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
 
-                        const chunk = decoder.decode(value);
-                        const lines = chunk.split('\n');
+                        // SSE records can span chunks: keep the trailing incomplete line for the next read.
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() ?? '';
 
                         for (const line of lines) {
-                            if (line.startsWith('data: ')) {
-                                const data = line.slice(6);
-                                if (data === '[DONE]') break;
+                            const trimmedLine = line.trim();
+                            if (trimmedLine.startsWith('data: ')) {
+                                const data = trimmedLine.slice(6);
+                                if (data === '[DONE]') return;
 
                                 try {
                                     const json = JSON.parse(data);

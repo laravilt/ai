@@ -114,7 +114,7 @@ export default function AIChat({
     const [config, setConfig] = useState<AIConfig | null>(null);
     const [sessions, setSessions] = useState<Session[]>([]);
     const [currentSession, setCurrentSession] = useState<Session | null>(initialSession || null);
-    const [messages, setMessages] = useState<Message[]>([]);
+    const [messages, setMessages] = useState<Message[]>(() => initialSession?.messages ?? []);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [streaming, setStreaming] = useState(false);
@@ -138,7 +138,7 @@ export default function AIChat({
     const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
 
     // The message list is mutated from async code (like the Vue ref), so keep a synchronous mirror.
-    const messagesRef = useRef<Message[]>([]);
+    const messagesRef = useRef<Message[]>(messages);
 
     const commitMessages = useCallback((next: Message[]) => {
         messagesRef.current = next;
