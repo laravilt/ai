@@ -54,8 +54,10 @@ export function useGlobalSearch(endpoint = '/laravilt-ai/search') {
       const next: SearchGroup[] = data.results || []
       if (isLatest()) {
         results.value = next
+        return next
       }
-      return next
+      // A newer search has taken over: resolve with its results, never this stale set
+      return results.value
     } catch (e) {
       if (isLatest()) {
         error.value = e instanceof Error ? e.message : 'Search failed'

@@ -114,7 +114,8 @@ export default function AIChat({
     const [config, setConfig] = useState<AIConfig | null>(null);
     const [sessions, setSessions] = useState<Session[]>([]);
     const [currentSession, setCurrentSession] = useState<Session | null>(initialSession || null);
-    const [messages, setMessages] = useState<Message[]>(() => initialSession?.messages ?? []);
+    // A copy, so later message updates never mutate the parent's session object
+    const [messages, setMessages] = useState<Message[]>(() => [...(initialSession?.messages ?? [])]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [streaming, setStreaming] = useState(false);
