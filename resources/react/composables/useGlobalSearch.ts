@@ -35,6 +35,9 @@ export function useGlobalSearch(endpoint = '/laravilt-ai/search') {
     // Id of the most recent search, so an older in-flight response cannot overwrite newer state.
     const latestSearch = useRef(0);
 
+    // The results of the most recent search, readable synchronously so a stale call can resolve with them.
+    const latestResults = useRef<SearchGroup[]>([]);
+
     const hasResults = results.length > 0;
 
     const totalResults = results.reduce((total, group) => total + group.results.length, 0);
@@ -45,6 +48,7 @@ export function useGlobalSearch(endpoint = '/laravilt-ai/search') {
             const isLatest = () => searchId === latestSearch.current;
 
             if (!searchQuery.trim()) {
+                latestResults.current = [];
                 setResults([]);
                 setLoading(false);
                 return [];
@@ -60,12 +64,16 @@ export function useGlobalSearch(endpoint = '/laravilt-ai/search') {
                 const data = await response.json();
                 const next: SearchGroup[] = data.results || [];
                 if (isLatest()) {
+                    latestResults.current = next;
                     setResults(next);
+                    return next;
                 }
-                return next;
+                // A newer search has taken over: resolve with its results, never this stale set
+                return latestResults.current;
             } catch (e) {
                 if (isLatest()) {
                     setError(e instanceof Error ? e.message : 'Search failed');
+                    latestResults.current = [];
                     setResults([]);
                 }
                 throw e;

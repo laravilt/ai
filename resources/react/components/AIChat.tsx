@@ -114,7 +114,8 @@ export default function AIChat({
     const [config, setConfig] = useState<AIConfig | null>(null);
     const [sessions, setSessions] = useState<Session[]>([]);
     const [currentSession, setCurrentSession] = useState<Session | null>(initialSession || null);
-    const [messages, setMessages] = useState<Message[]>(() => initialSession?.messages ?? []);
+    // A copy, so later message updates never mutate the parent's session object
+    const [messages, setMessages] = useState<Message[]>(() => [...(initialSession?.messages ?? [])]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [streaming, setStreaming] = useState(false);
@@ -522,7 +523,8 @@ export default function AIChat({
 
             if (reader) {
                 let buffer = '';
-                while (true) {
+                let finished = false;
+                while (!finished) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
@@ -536,7 +538,12 @@ export default function AIChat({
                         const trimmedLine = line.trim();
                         if (trimmedLine.startsWith('data: ')) {
                             const data = trimmedLine.slice(6);
-                            if (data === '[DONE]') continue;
+                            if (data === '[DONE]') {
+                                // The server signalled the end of the stream: stop reading.
+                                finished = true;
+                                await reader.cancel().catch(() => {});
+                                break;
+                            }
 
                             try {
                                 const json = JSON.parse(data);

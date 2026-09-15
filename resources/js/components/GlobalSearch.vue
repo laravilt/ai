@@ -103,13 +103,19 @@ const totalResults = computed(() => flatResults.value.length)
 // Search debounce
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
+// Id of the most recent search, so an older in-flight response cannot overwrite newer results.
+let latestSearch = 0
+
 watch(query, (newQuery) => {
   if (searchTimeout) {
     clearTimeout(searchTimeout)
   }
 
   if (!newQuery.trim()) {
+    // Invalidate any in-flight search so it cannot repopulate the cleared results.
+    latestSearch++
     results.value = []
+    loading.value = false
     return
   }
 
@@ -119,6 +125,9 @@ watch(query, (newQuery) => {
 })
 
 async function performSearch(searchQuery: string) {
+  const searchId = ++latestSearch
+  const isLatest = () => searchId === latestSearch
+
   loading.value = true
   selectedIndex.value = 0
 
@@ -127,12 +136,18 @@ async function performSearch(searchQuery: string) {
       `${endpoint.value}?query=${encodeURIComponent(searchQuery)}&useAI=${useAI.value}`
     )
     const data = await response.json()
-    results.value = data.results || []
+    if (isLatest()) {
+      results.value = data.results || []
+    }
   } catch (error) {
     console.error('Search error:', error)
-    results.value = []
+    if (isLatest()) {
+      results.value = []
+    }
   } finally {
-    loading.value = false
+    if (isLatest()) {
+      loading.value = false
+    }
   }
 }
 
